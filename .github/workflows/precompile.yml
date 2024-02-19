@@ -20,22 +20,38 @@ jobs:
           - pair:
               arch: aarch64
               target_cpu: arm64
+              out_dir: vc_arm64_lib
               vcvarsall: amd64_arm64
               shared: "0"
           - pair:
               arch: x86_64
               target_cpu: amd64
+              out_dir: vc_x64_lib
               vcvarsall: x64
+              shared: "0"
+          - pair:
+              arch: i686
+              target_cpu: x86
+              out_dir: vc_lib
+              vcvarsall: amd64_x86
               shared: "0"
           - pair:
               arch: aarch64
               target_cpu: arm64
+              out_dir: vc_arm64_dll
               vcvarsall: amd64_arm64
               shared: "1"
           - pair:
               arch: x86_64
               target_cpu: amd64
+              out_dir: vc_x64_dll
               vcvarsall: x64
+              shared: "1"
+          - pair:
+              arch: i686
+              target_cpu: x86
+              out_dir: vc_dll
+              vcvarsall: amd64_x86
               shared: "1"
 
     steps:
