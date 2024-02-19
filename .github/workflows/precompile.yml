@@ -91,7 +91,7 @@ jobs:
           if ( "${{ matrix.pair.shared }}" -eq "1" ) {
             $type = "shared"
           }
-          tar -czf "./artifacts/wxWidgets-$type-${{ matrix.pair.arch }}-windows-msvc.tar.gz" -C ./wxWidgets/lib/vc_${{ matrix.pair.target_cpu }}_lib .
+          tar -czf "./artifacts/wxWidgets-$type-${{ matrix.pair.arch }}-windows-msvc.tar.gz" -C ./wxWidgets/lib/${{ matrix.pair.out_dir }} .
 
       - uses: softprops/action-gh-release@v1
         with:
