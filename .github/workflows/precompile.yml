@@ -1,0 +1,83 @@
+name: wxwidgets-windows
+
+on:
+  push:
+    tags:
+        - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2019
+    env:
+      WEBVIEW2_VERSION: "1.0.2277.86"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pair:
+              arch: aarch64
+              target_cpu: arm64
+              vcvarsall: amd64_arm64
+              shared: "0"
+          - pair:
+              arch: x86_64
+              target_cpu: amd64
+              vcvarsall: x64
+              shared: "0"
+          - pair:
+              arch: aarch64
+              target_cpu: arm64
+              vcvarsall: amd64_arm64
+              shared: "1"
+          - pair:
+              arch: x86_64
+              target_cpu: amd64
+              vcvarsall: x64
+              shared: "1"
+
+    steps:
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.pair.vcvarsall }}
+
+      - name: Compile wxWidgets
+        run: |
+          $ref = $env:GITHUB_REF
+          $WXWIDGETS_VERSION=$ref.Replace('refs/tags/v','')
+          Invoke-WebRequest -Uri "https://github.com/wxWidgets/wxWidgets/releases/download/v${WXWIDGETS_VERSION}/wxWidgets-${WXWIDGETS_VERSION}.zip" -OutFile "wxWidgets-${WXWIDGETS_VERSION}.zip"
+          Remove-Item -LiteralPath wxWidgets -Force -Recurse -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path wxWidgets -Force
+          Expand-Archive "wxWidgets-${WXWIDGETS_VERSION}.zip" -DestinationPath ./wxWidgets -Force
+          
+          cd wxWidgets/3rdparty
+          Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${{ env.WEBVIEW2_VERSION }}" -OutFile "webview2-${{ env.WEBVIEW2_VERSION }}.zip"
+          Remove-Item -LiteralPath webview2 -Force -Recurse -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path webview2 -Force
+          Expand-Archive "webview2-${{ env.WEBVIEW2_VERSION }}.zip" -DestinationPath ./webview2 -Force
+          cd ..
+
+          $file="./include/wx/msw/setup.h"
+          $tmp = (Get-Content $file) -replace '#define wxUSE_POSTSCRIPT(\s+)(\d+)', '#define wxUSE_POSTSCRIPT 1' ` -replace '#define wxUSE_WEBVIEW(\s+)(\d+)', '#define wxUSE_WEBVIEW 1' ` -replace '#define wxUSE_WEBVIEW_EDGE (\s+)(\d+)', '#define wxUSE_WEBVIEW_EDGE 1'
+          Set-Content -Value $tmp -Path $file
+          ((Get-Content $file) -join "`n") + "`n" | Set-Content -NoNewline $file
+
+          cd build/msw
+          nmake TARGET_CPU=${{ matrix.pair.target_cpu }} BUILD=release SHARED=${{ matrix.pair.shared }} DIR_SUFFIX_CPU= -f makefile.vc
+
+      - name: Create tarball
+        run: |
+          Remove-Item -LiteralPath artifacts -Force -Recurse -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path artifacts -Force
+          $type = "static"
+          if ( "${{ matrix.pair.shared }}" -eq "1" ) {
+            $type = "shared"
+          }
+          tar -czf "./artifacts/wxWidgets-$type-${{ matrix.pair.arch }}-windows-msvc.tar.gz" -C ./wxWidgets/lib/vc_${{ matrix.pair.target_cpu }}_lib .
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/wxWidgets-*.tar.gz
